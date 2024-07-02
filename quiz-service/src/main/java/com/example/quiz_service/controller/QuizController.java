@@ -12,6 +12,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("quiz")
+@CrossOrigin(origins = "http://localhost:3000")
 public class QuizController {
 
     @Autowired
@@ -22,7 +23,7 @@ public class QuizController {
         return quizService.createQuiz(quizDto.getTopic(), quizDto.getNoOfQuestions(), quizDto.getQuizTitle());
     }
 
-    @GetMapping("getQuiz/{quizId}")
+    @PostMapping("getQuiz/{quizId}")
     public ResponseEntity<List<QuestionWrapper>> getQuizQuestions(@PathVariable Integer quizId) {
         return quizService.getQuizQuestions(quizId);
     }
