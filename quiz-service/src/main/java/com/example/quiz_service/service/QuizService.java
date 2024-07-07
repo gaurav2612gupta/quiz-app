@@ -1,7 +1,9 @@
 package com.example.quiz_service.service;
 
+import com.example.quiz_service.dao.CustomQuizDao;
 import com.example.quiz_service.dao.QuizDao;
 import com.example.quiz_service.feign.QuizInterface;
+import com.example.quiz_service.model.CustomQuiz;
 import com.example.quiz_service.model.QuestionWrapper;
 import com.example.quiz_service.model.Quiz;
 import com.example.quiz_service.model.Response;
@@ -10,9 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -22,9 +22,12 @@ public class QuizService {
     private QuizDao quizDao;
 
     @Autowired
+    private CustomQuizDao customQuizDao;
+
+    @Autowired
     QuizInterface quizInterface;
 
-    public ResponseEntity<String> createQuiz(String topic, int noOfQuestions, String quizTitle) {
+    public ResponseEntity<Integer> createQuiz(String topic, int noOfQuestions, String quizTitle) {
         try {
             List<Integer> questions = quizInterface.getQuestionsForQuiz(topic, noOfQuestions).getBody();
             Quiz quiz = new Quiz();
@@ -32,9 +35,9 @@ public class QuizService {
             quiz.setQuestionIds(questions);
             quizDao.save(quiz);
 
-            return new ResponseEntity<>("Success", HttpStatus.CREATED);
+            return new ResponseEntity<>(quiz.getId(), HttpStatus.CREATED);
         } catch (Exception e) {
-            return new ResponseEntity<>("Error "+  e, HttpStatus.BAD_REQUEST);
+            return new ResponseEntity<>(-1, HttpStatus.BAD_REQUEST);
         }
     }
 
@@ -48,5 +51,31 @@ public class QuizService {
     public ResponseEntity<Integer> calculateResult(Integer quizId, List<Response> responses) {
         Integer correctResponses = quizInterface.getScore(responses).getBody();
         return new ResponseEntity<>(correctResponses, HttpStatus.OK);
+    }
+
+    public ResponseEntity<String> createCustomQuiz(Integer quizId, String quizTitle, List<QuestionWrapper> questionList) {
+        CustomQuiz customQuiz = new CustomQuiz();
+        customQuiz.setId(quizId);
+        customQuiz.setQuizTitle(quizTitle);
+        customQuiz.setQuestionList(questionList);
+        customQuizDao.save(customQuiz);
+
+        return new ResponseEntity<>("Success", HttpStatus.OK);
+    }
+
+    public ResponseEntity<Integer> submitCustomQuiz(List<Response> correctResponseList, List<Response> responseList) {
+        Integer score = 0;
+        for(Response response : responseList) {
+            for(Response correctResponse : correctResponseList) {
+                if(response.getId().equals(correctResponse.getId())) {
+                    if(response.getResponse().equals(correctResponse.getResponse())) score++;
+                }
+            }
+        }
+        return new ResponseEntity<>(score, HttpStatus.OK);
+    }
+
+    public ResponseEntity<List<QuestionWrapper>> getCustomQuiz(String id) {
+        return new ResponseEntity<>(customQuizDao.findById(id).get().getQuestionList(), HttpStatus.OK);
     }
 }
