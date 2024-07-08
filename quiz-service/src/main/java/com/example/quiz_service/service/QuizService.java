@@ -3,17 +3,20 @@ package com.example.quiz_service.service;
 import com.example.quiz_service.dao.CustomQuizDao;
 import com.example.quiz_service.dao.QuizDao;
 import com.example.quiz_service.feign.QuizInterface;
-import com.example.quiz_service.model.CustomQuiz;
-import com.example.quiz_service.model.QuestionWrapper;
-import com.example.quiz_service.model.Quiz;
-import com.example.quiz_service.model.Response;
+import com.example.quiz_service.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class QuizService {
@@ -53,29 +56,65 @@ public class QuizService {
         return new ResponseEntity<>(correctResponses, HttpStatus.OK);
     }
 
-    public ResponseEntity<String> createCustomQuiz(Integer quizId, String quizTitle, List<QuestionWrapper> questionList) {
+    public ResponseEntity<String> createCustomQuiz(Integer quizId, String quizTitle, List<QuestionWrapper> questionList, List<CustomResponse> correctResponseList) {
         CustomQuiz customQuiz = new CustomQuiz();
         customQuiz.setId(quizId);
         customQuiz.setQuizTitle(quizTitle);
         customQuiz.setQuestionList(questionList);
+        customQuiz.setCorrectResponseList(correctResponseList);
         customQuizDao.save(customQuiz);
+        String response = customQuiz.getCreatedAt().toString();
 
-        return new ResponseEntity<>("Success", HttpStatus.OK);
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
-    public ResponseEntity<Integer> submitCustomQuiz(List<Response> correctResponseList, List<Response> responseList) {
+    public ResponseEntity<List<CustomQuiz>> getCustomQuiz(String id) {
+        // Decode the Base64 encoded timestamp
+        byte[] decodedBytes = Base64.getDecoder().decode(id);
+        String decodedTimestampStr = new String(decodedBytes, StandardCharsets.UTF_8);
+
+        // Parse the decoded timestamp to LocalDateTime
+        LocalDateTime decodedTimestamp = LocalDateTime.parse(decodedTimestampStr, DateTimeFormatter.ISO_DATE_TIME);
+        return new ResponseEntity<>(customQuizDao.findByCreatedAt(decodedTimestamp), HttpStatus.OK);
+    }
+
+    public ResponseEntity<Integer> submitCustomQuiz(String customQuizId, List<CustomResponse> responseList) {
         Integer score = 0;
-        for(Response response : responseList) {
-            for(Response correctResponse : correctResponseList) {
-                if(response.getId().equals(correctResponse.getId())) {
-                    if(response.getResponse().equals(correctResponse.getResponse())) score++;
+
+        try {
+            // Decode the Base64 encoded customQuizId
+            byte[] decodedBytes = Base64.getDecoder().decode(customQuizId);
+            String decodedTimestampStr = new String(decodedBytes, StandardCharsets.UTF_8);
+
+            // Parse the decoded timestamp to LocalDateTime
+            LocalDateTime decodedTimestamp = LocalDateTime.parse(decodedTimestampStr, DateTimeFormatter.ISO_DATE_TIME);
+
+            // Fetch the CustomQuiz using the decoded timestamp
+            List<CustomQuiz> customQuizzes = customQuizDao.findByCreatedAt(decodedTimestamp);
+            if (customQuizzes.isEmpty()) {
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+
+            CustomQuiz customQuiz = customQuizzes.get(0);
+            List<CustomResponse> correctResponseList = customQuiz.getCorrectResponseList();
+
+            // Create a map of correct responses for quick lookup
+            Map<String, String> correctResponseMap = correctResponseList.stream()
+                    .collect(Collectors.toMap(CustomResponse::getQuestion, CustomResponse::getResponse));
+
+            // Compare user responses with correct responses and calculate the score
+            for (CustomResponse response : responseList) {
+                String correctAnswer = correctResponseMap.get(response.getQuestion());
+                if (correctAnswer != null && correctAnswer.equals(response.getResponse())) {
+                    score++;
                 }
             }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
+
         return new ResponseEntity<>(score, HttpStatus.OK);
     }
 
-    public ResponseEntity<List<QuestionWrapper>> getCustomQuiz(String id) {
-        return new ResponseEntity<>(customQuizDao.findById(id).get().getQuestionList(), HttpStatus.OK);
-    }
 }

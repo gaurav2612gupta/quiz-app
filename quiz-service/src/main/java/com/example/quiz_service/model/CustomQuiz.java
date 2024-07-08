@@ -2,7 +2,9 @@ package com.example.quiz_service.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.CreationTimestamp;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -13,15 +15,14 @@ public class CustomQuiz {
     private Integer id;
     private String quizTitle;
 
+//    @CollectionTable(name = "question_list", joinColumns = @JoinColumn(name = "custom_quiz_id"))
     @ElementCollection
-    @CollectionTable(name = "question_list", joinColumns = @JoinColumn(name = "custom_quiz_id"))
     private List<QuestionWrapper> questionList;
 
+//    @CollectionTable(name = "correct_response_list", joinColumns = @JoinColumn(name = "custom_quiz_id"))
     @ElementCollection
-    @CollectionTable(name = "response_list", joinColumns = @JoinColumn(name = "custom_quiz_id"))
-    private List<Response> responseList;
+    private List<CustomResponse> correctResponseList;
 
-    @ElementCollection
-    @CollectionTable(name = "correct_response_list", joinColumns = @JoinColumn(name = "custom_quiz_id"))
-    private List<Response> correctResponseList;
+    @CreationTimestamp
+    private LocalDateTime createdAt;
 }
