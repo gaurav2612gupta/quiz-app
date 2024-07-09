@@ -15,11 +15,9 @@ public class CustomQuiz {
     private Integer id;
     private String quizTitle;
 
-//    @CollectionTable(name = "question_list", joinColumns = @JoinColumn(name = "custom_quiz_id"))
     @ElementCollection
     private List<QuestionWrapper> questionList;
 
-//    @CollectionTable(name = "correct_response_list", joinColumns = @JoinColumn(name = "custom_quiz_id"))
     @ElementCollection
     private List<CustomResponse> correctResponseList;
 
